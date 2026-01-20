@@ -123,7 +123,7 @@ Semua respons berformat `{ "data": ..., "meta": ..., "errors": ... }`.
 ## Backend (Gin) – Menjalankan di Lokal dengan XAMPP
 1. Start Apache & MySQL melalui XAMPP.
 2. Buat database `service_reports` dan jalankan schema SQL di atas (mis. `mysql -u root < schema.sql`).
-3. Salin `.env.example` → `.env` kemudian isi:
+3. Salin `.env.example` → `.env` kemudian isi kredensial:
    ```env
    APP_NAME=Service Report
    SERVER_PORT=8080
@@ -131,10 +131,19 @@ Semua respons berformat `{ "data": ..., "meta": ..., "errors": ... }`.
    JWT_SECRET=super-secret
    JWT_ACCESS_TTL=15m
    JWT_REFRESH_TTL=24h
+   UPLOAD_DIR=./uploads
    FRONTEND_URL=http://localhost:5173
    SEED_MASTER_EMAIL=master@corp.com
    SEED_MASTER_PASSWORD=ChangeMe123!
+
+   # Gmail SMTP (dev only — ganti ke Hostinger nanti)
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USERNAME=your-gmail-address@gmail.com
+   SMTP_PASSWORD=your-gmail-app-password
+   SMTP_FROM="Service Report <your-gmail-address@gmail.com>"
    ```
+   Untuk Gmail wajib membuat **App Password** (https://myaccount.google.com/apppasswords) lalu gunakan nilai tersebut sebagai `SMTP_PASSWORD`.
 4. Jalankan backend:
    ```bash
    cd backend

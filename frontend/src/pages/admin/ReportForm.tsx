@@ -178,10 +178,10 @@ export default function ReportForm() {
         },
         complaint: values.problemDescription,
       });
-      setMessage("Service report dikirim ke FSE.");
+      setMessage("Service report sent to FSE.");
       reset(defaultValues);
     } catch (err: any) {
-      setMessage(err?.response?.data?.error ?? "Gagal menyimpan laporan.");
+      setMessage(err?.response?.data?.error ?? "Failed to save report.");
     } finally {
       setLoading(false);
     }
@@ -191,8 +191,8 @@ export default function ReportForm() {
     <div className="space-y-8 pb-16 text-slate-900">
       <header>
         <p className="text-sm uppercase tracking-[0.3em] text-slate-500">Service Report</p>
-        <h1 className="text-3xl font-semibold text-slate-900">Form Service Report</h1>
-        <p className="text-sm text-slate-600">Konten disesuaikan dengan wireframe yang diberikan klien.</p>
+        <h1 className="text-3xl font-semibold text-slate-900">Service Report Form</h1>
+        <p className="text-sm text-slate-600">Content aligned with the client-provided wireframe.</p>
       </header>
 
       <form onSubmit={onSubmit} className="space-y-8">
@@ -243,7 +243,7 @@ export default function ReportForm() {
               <Field label="Customer Person">
                 <input {...register("customerPerson")} className={inputClass} />
               </Field>
-              <Field label="Departement">
+              <Field label="Department">
                 <input {...register("department")} className={inputClass} />
               </Field>
             </div>
@@ -318,7 +318,7 @@ export default function ReportForm() {
             </div>
           </div>
 
-          <Field label="Deskripsi" className="mt-6">
+          <Field label="Description" className="mt-6">
             <textarea {...register("problemDescription")} className={`${inputClass} min-h-[80px]`} />
           </Field>
 
@@ -462,7 +462,7 @@ export default function ReportForm() {
 
           <div className="mt-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-sm font-semibold uppercase tracking-wide">Deskripsi</p>
+              <p className="text-sm font-semibold uppercase tracking-wide">Description</p>
               <button
                 type="button"
                 onClick={() => appendTool({ code: "", description: "", usableLimit: "" })}
@@ -514,7 +514,7 @@ export default function ReportForm() {
 
         <section className={sectionClass}>
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <h3 className="text-xl font-semibold">Sparepart</h3>
+            <h3 className="text-xl font-semibold">Spare Parts</h3>
             <button
               type="button"
               onClick={() => appendSpare({ qty: "", partNo: "", description: "", status: "" })}
@@ -625,7 +625,7 @@ export default function ReportForm() {
                   <div>
                     <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Survey</p>
                     <h4 className="text-xl font-semibold text-slate-900">Customer Satisfaction</h4>
-                    <p className="text-sm text-slate-600">Scan QR berikut untuk mengisi feedback service secara realtime.</p>
+                    <p className="text-sm text-slate-600">Scan the QR code below to submit service feedback in real time.</p>
                   </div>
                   <div className="flex flex-wrap justify-center gap-2 text-xs font-semibold text-slate-600 md:justify-start">
                     <span className="rounded-full border border-slate-200 px-3 py-1">WhatsApp</span>
@@ -641,7 +641,7 @@ export default function ReportForm() {
               </div>
               <div className="mt-5 grid gap-3 text-sm text-slate-700">
                 <div className="rounded-xl bg-slate-50 px-4 py-3">
-                  <p className="text-xs uppercase text-slate-500">Alamat Survey</p>
+                  <p className="text-xs uppercase text-slate-500">Survey URL</p>
                   <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="font-semibold text-slate-900 break-all">{surveyLink}</p>
                     <button

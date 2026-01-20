@@ -26,16 +26,16 @@ export default function HistoryPage() {
     <section className="space-y-6">
       <div>
         <p className="text-sm uppercase tracking-[0.3em] text-slate-400">History</p>
-        <h1 className="text-2xl font-semibold text-slate-900">Riwayat Service Report</h1>
-        <p className="text-sm text-slate-500">Daftar dispatch selesai dengan status akhir.</p>
+        <h1 className="text-2xl font-semibold text-slate-900">Service Report History</h1>
+        <p className="text-sm text-slate-500">Completed dispatches with their final status.</p>
       </div>
       <div className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
         <div className="overflow-hidden rounded-2xl border border-slate-200">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="p-4">No Dispatch</th>
-                <th className="p-4">Tanggal</th>
+                <th className="p-4">Dispatch No</th>
+                <th className="p-4">Date</th>
                 <th className="p-4">Customer</th>
                 <th className="p-4">Status</th>
               </tr>
@@ -51,7 +51,7 @@ export default function HistoryPage() {
               {!loading && histories.length === 0 && (
                 <tr>
                   <td colSpan={4} className="p-6 text-center text-slate-500">
-                    Belum ada laporan selesai.
+                    No completed reports yet.
                   </td>
                 </tr>
               )}

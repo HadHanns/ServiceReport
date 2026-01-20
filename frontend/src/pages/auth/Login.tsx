@@ -28,7 +28,7 @@ export default function LoginPage() {
       navigate("/");
     } catch (err) {
       console.error(err);
-      setError("Email atau password salah.");
+      setError("Email or password is incorrect.");
     } finally {
       setLoading(false);
     }
@@ -40,11 +40,10 @@ export default function LoginPage() {
     setForgotLoading(true);
     setForgotMessage(null);
     try {
-      const res = await api.post("/auth/forgot-password", { email: forgotEmail });
-      const temp = res.data?.data?.temporary_password;
-      setForgotMessage(temp ? `Password sementara: ${temp}` : "Password sementara telah dibuat.");
+      await api.post("/auth/forgot-password", { email: forgotEmail });
+      setForgotMessage("Temporary password has been sent to your email.");
     } catch (err: any) {
-      setForgotMessage(err?.response?.data?.error ?? "Email tidak ditemukan.");
+      setForgotMessage(err?.response?.data?.error ?? "Email not found.");
     } finally {
       setForgotLoading(false);
     }
@@ -56,7 +55,7 @@ export default function LoginPage() {
         <div className="mb-8 space-y-2 text-center">
           <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Internal Service</p>
           <h1 className="text-3xl font-semibold text-slate-900">Portal Service Report</h1>
-          <p className="text-sm text-slate-500">Gunakan akun resmi untuk mengakses dashboard.</p>
+          <p className="text-sm text-slate-500">Use your official account to access the dashboard.</p>
         </div>
         <form className="space-y-6" onSubmit={onSubmit}>
           <div>
@@ -82,17 +81,17 @@ export default function LoginPage() {
             className="w-full rounded-2xl bg-slate-900 py-3 text-white transition hover:bg-slate-800"
             disabled={loading}
           >
-            {loading ? "Memproses..." : "Masuk"}
+            {loading ? "Processing..." : "Sign In"}
           </button>
         </form>
         <div className="mt-4 text-center text-sm text-slate-500">
           <button type="button" onClick={() => setForgotOpen((prev) => !prev)} className="font-semibold text-slate-900 underline-offset-2 hover:underline">
-            Lupa password?
+            Forgot password?
           </button>
         </div>
         {forgotOpen && (
           <form onSubmit={handleForgot} className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
-            <p className="text-slate-600">Masukkan email akun. Sistem akan memberikan password sementara untuk login ulang.</p>
+            <p className="text-slate-600">Enter the account email. The system will email a temporary password for re-login.</p>
             <input
               type="email"
               value={forgotEmail}
@@ -102,7 +101,7 @@ export default function LoginPage() {
               placeholder="email@company.com"
             />
             <button type="submit" disabled={forgotLoading} className="w-full rounded-2xl bg-slate-900 px-4 py-2 font-semibold text-white disabled:opacity-60">
-              {forgotLoading ? "Mengirim..." : "Dapatkan Password"}
+              {forgotLoading ? "Sending..." : "Get Temporary Password"}
             </button>
             {forgotMessage && <p className="text-xs text-slate-500">{forgotMessage}</p>}
           </form>

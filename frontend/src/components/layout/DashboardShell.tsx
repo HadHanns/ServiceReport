@@ -15,11 +15,11 @@ import clsx from "clsx";
 import { useAuth } from "../../hooks/useAuth";
 
 const navItems = [
-  { to: "/", label: "Beranda", icon: Home, roles: ["MASTER_ADMIN", "ADMIN"] },
+  { to: "/", label: "Home", icon: Home, roles: ["MASTER_ADMIN", "ADMIN"] },
   { to: "/users", label: "Users", icon: Users, roles: ["MASTER_ADMIN", "ADMIN"] },
   { to: "/reports/new", label: "Service Report", icon: SquareStack, roles: ["ADMIN"] },
   { to: "/history", label: "History Report", icon: History, roles: ["MASTER_ADMIN", "ADMIN"] },
-  { to: "/teknisi/reports", label: "Tugas Saya", icon: PlusCircle, roles: ["TEKNISI"] },
+  { to: "/teknisi/reports", label: "My Assignments", icon: PlusCircle, roles: ["TEKNISI"] },
 ];
 
 export default function DashboardShell() {
@@ -90,7 +90,7 @@ export default function DashboardShell() {
             <Menu size={18} />
           </button>
           <div className="flex flex-col">
-            <span className="text-lg font-semibold">Hallo, {user?.name ?? "User"}</span>
+            <span className="text-lg font-semibold">Hello, {user?.name ?? "User"}</span>
             <span className="text-sm text-slate-500">{user?.role ?? "Admin"}</span>
           </div>
           <div className="ml-auto flex items-center gap-4">
