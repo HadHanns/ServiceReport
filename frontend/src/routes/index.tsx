@@ -57,7 +57,7 @@ export const router = createBrowserRouter([
       {
         path: "teknisi/reports",
         element: (
-          <ProtectedRoute roles={["TEKNISI"]}>
+          <ProtectedRoute roles={["TEKNISI", "ADMIN", "MASTER_ADMIN"]}>
             <TechnicianReports />
           </ProtectedRoute>
         ),
@@ -65,7 +65,7 @@ export const router = createBrowserRouter([
       {
         path: "teknisi/reports/:id",
         element: (
-          <ProtectedRoute roles={["TEKNISI"]}>
+          <ProtectedRoute roles={["TEKNISI", "ADMIN", "MASTER_ADMIN"]}>
             <TechnicianUpdate />
           </ProtectedRoute>
         ),
