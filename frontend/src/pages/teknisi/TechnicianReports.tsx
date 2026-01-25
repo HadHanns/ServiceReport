@@ -3,6 +3,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import { Calendar, Mail, Plus, Printer, QrCode } from "lucide-react";
+import qrSurvey from "../../assets/qrSurvey.svg";
 
 type DeviceRow = {
   partNo: string;
@@ -134,7 +135,7 @@ const defaultValues: ReportFormValues = {
 const sectionClass = "rounded-[32px] border border-slate-200 bg-white p-6 text-slate-900 shadow-sm";
 const inputClass =
   "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-600/30";
-const surveyLink = "survey.webservicereport.id/satisfaction";
+const surveyLink = "https://docs.google.com/forms/d/e/1FAIpQLSdyNgH3_wVZnAnh-g5AF6g9QYWH-p6TYvAE_nz55DGlqqp8lw/viewform";
 
 export default function ReportForm() {
   const { id } = useParams();
@@ -148,6 +149,7 @@ export default function ReportForm() {
   const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
   const [pendingFinalize, setPendingFinalize] = useState(false);
   const [finalizeReady, setFinalizeReady] = useState(false);
+  const [showSurveyQrModal, setShowSurveyQrModal] = useState(false);
 
   const {
     register,
@@ -193,6 +195,9 @@ export default function ReportForm() {
   const serviceDescriptionWatch = watch("serviceDescription");
   const conclusionWatch = watch("conclusion");
   const notifOpenValue = watch("notifOpen");
+  const customerNameValue = watch("customerName");
+  const phoneValue = watch("phone");
+  const emailValue = watch("email");
   const isFinalized = !!finalizedDateValue;
 
   const formatDisplayDate = (value: string) => {
@@ -208,6 +213,35 @@ export default function ReportForm() {
     const err = path.split(".").reduce((obj: any, key) => obj?.[key], errors as any);
     if (typeof err?.message === "string") return err.message;
     return undefined;
+  };
+
+  const surveyMessage = () => {
+    const greeting = customerNameValue ? `Halo ${customerNameValue},` : "Halo pelanggan,";
+    return `${greeting}\n\nMohon bantuannya untuk mengisi survei layanan berikut:\n${surveyLink}`;
+  };
+
+  const handleShareWhatsApp = () => {
+    const phoneDigits = (phoneValue || "").replace(/\D/g, "");
+    if (!phoneDigits) {
+      setMessage("Nomor telepon customer belum diisi.");
+      return;
+    }
+    const encoded = encodeURIComponent(surveyMessage());
+    window.open(`https://wa.me/${phoneDigits}?text=${encoded}`, "_blank", "noopener");
+  };
+
+  const handleShareEmail = () => {
+    if (!emailValue) {
+      setMessage("Email customer belum diisi.");
+      return;
+    }
+    const subject = encodeURIComponent("Customer Satisfaction Survey");
+    const body = encodeURIComponent(surveyMessage());
+    window.open(`mailto:${emailValue}?subject=${subject}&body=${body}`);
+  };
+
+  const handleShowQr = () => {
+    setShowSurveyQrModal(true);
   };
 
   useEffect(() => {
@@ -998,14 +1032,32 @@ export default function ReportForm() {
                     <p className="text-sm text-slate-600">Scan the QR code below to submit service feedback in real time.</p>
                   </div>
                   <div className="flex flex-wrap justify-center gap-2 text-xs font-semibold text-slate-600 md:justify-start">
-                    <span className="rounded-full border border-slate-200 px-3 py-1">WhatsApp</span>
-                    <span className="rounded-full border border-slate-200 px-3 py-1">Email Link</span>
-                    <span className="rounded-full border border-slate-200 px-3 py-1">Direct QR</span>
+                    <button
+                      type="button"
+                      onClick={handleShareWhatsApp}
+                      className="rounded-full border border-slate-200 px-3 py-1 text-slate-700 transition hover:border-slate-300"
+                    >
+                      WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleShareEmail}
+                      className="rounded-full border border-slate-200 px-3 py-1 text-slate-700 transition hover:border-slate-300"
+                    >
+                      Email Link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleShowQr}
+                      className="rounded-full border border-slate-200 px-3 py-1 text-slate-700 transition hover:border-slate-300"
+                    >
+                      Direct QR
+                    </button>
                   </div>
                 </div>
                 <div className="flex justify-center md:justify-end">
                   <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-inner shadow-slate-900/5">
-                    <QrCode className="h-32 w-32 text-slate-800 md:h-40 md:w-40" />
+                    <img src={qrSurvey} alt="Survey QR" className="h-32 w-32 md:h-40 md:w-40" />
                   </div>
                 </div>
               </div>
@@ -1077,6 +1129,28 @@ export default function ReportForm() {
             </div>
           )}
         </>
+      )}
+
+      {showSurveyQrModal && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm px-4">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-xl shadow-slate-900/20">
+            <button
+              type="button"
+              className="absolute right-4 top-4 rounded-full border border-slate-200 px-3 py-1 text-sm font-semibold text-slate-600 hover:border-slate-300"
+              onClick={() => setShowSurveyQrModal(false)}
+            >
+              Close
+            </button>
+            <div className="flex flex-col items-center gap-4">
+              <img src={qrSurvey} alt="Survey QR" className="h-56 w-56" />
+              <p className="text-center text-sm text-slate-600">
+                Bagikan kode ini kepada customer atau kirim link berikut:
+                <br />
+                {surveyLink}
+              </p>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -15,6 +15,10 @@ type Report = {
   status: "open" | "progress" | "done";
   dispatch_date?: string;
   teknisi_id?: number;
+  form_payload?: {
+    dispatchDate?: string;
+    notifOpen?: string;
+  };
 };
 
 export default function AdminDashboard() {
@@ -410,8 +414,12 @@ export default function AdminDashboard() {
               )}
               {!loading &&
                 reports.map((report) => {
-                  const dateRaw = report.dispatch_date;
-                  const dateLabel = dateRaw ? new Date(dateRaw).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Tanggal";
+                  const fallbackDate = report.form_payload?.dispatchDate || report.form_payload?.notifOpen;
+                  const dateRaw = report.dispatch_date || fallbackDate;
+                  const dateObj = dateRaw ? new Date(dateRaw) : null;
+                  const dateLabel = dateObj && !Number.isNaN(dateObj.getTime())
+                    ? dateObj.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                    : "—";
                   const statusClass =
                     report.status === "done"
                       ? "bg-emerald-100 text-emerald-700"

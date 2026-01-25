@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import LoginPage from "../pages/auth/Login.tsx";
 import DashboardShell from "../components/layout/DashboardShell.tsx";
 import AdminDashboard from "../pages/admin/AdminDashboard.tsx";
@@ -8,6 +8,15 @@ import UserManagement from "../pages/admin/UserManagement.tsx";
 import TechnicianReports from "../pages/teknisi/TechnicianReports.tsx";
 import TechnicianUpdate from "../pages/teknisi/TechnicianUpdate.tsx";
 import { ProtectedRoute } from "./ProtectedRoute.tsx";
+import { useAuth } from "../hooks/useAuth.tsx";
+
+function DefaultLanding() {
+  const { user } = useAuth();
+  if (user?.role === "TEKNISI") {
+    return <Navigate to="/teknisi/reports" replace />;
+  }
+  return <AdminDashboard />;
+}
 
 export const router = createBrowserRouter([
   {
@@ -25,8 +34,8 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: (
-          <ProtectedRoute roles={["MASTER_ADMIN", "ADMIN"]}>
-            <AdminDashboard />
+          <ProtectedRoute roles={["MASTER_ADMIN", "ADMIN", "TEKNISI"]}>
+            <DefaultLanding />
           </ProtectedRoute>
         ),
       },

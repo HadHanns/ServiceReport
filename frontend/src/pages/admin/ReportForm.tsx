@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { api } from "../../lib/api";
-import { Calendar, Mail, Plus, Printer, QrCode, Send, UploadCloud } from "lucide-react";
+import { Calendar, Mail, Plus, Printer, Send, UploadCloud } from "lucide-react";
+import qrSurvey from "../../assets/qrSurvey.svg";
 
 type DeviceRow = {
   partNo: string;
@@ -130,7 +131,7 @@ const defaultValues: ReportFormValues = {
 const sectionClass = "rounded-[32px] border border-slate-200 bg-white p-6 text-slate-900 shadow-sm";
 const inputClass =
   "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-600/30";
-const surveyLink = "survey.webservicereport.id/satisfaction";
+const surveyLink = "https://docs.google.com/forms/d/e/1FAIpQLSdyNgH3_wVZnAnh-g5AF6g9QYWH-p6TYvAE_nz55DGlqqp8lw/viewform";
 const MAX_PROBLEM_PHOTOS = 3;
 
 export default function ReportForm() {
@@ -141,6 +142,9 @@ export default function ReportForm() {
   const [teknisiDropdownOpen, setTeknisiDropdownOpen] = useState(false);
   const [teknisiLoading, setTeknisiLoading] = useState(true);
   const [problemPhotos, setProblemPhotos] = useState<string[]>([]);
+  const [showSendConfirm, setShowSendConfirm] = useState(false);
+  const [pendingValues, setPendingValues] = useState<ReportFormValues | null>(null);
+  const [showSurveyQrModal, setShowSurveyQrModal] = useState(false);
 
   const {
     register,
@@ -174,6 +178,9 @@ export default function ReportForm() {
   const approvedSignature = watch("approvedSignature");
   const fseNameValue = watch("fseName");
   const finalizedDateValue = watch("finalizedDate");
+  const customerNameValue = watch("customerName");
+  const phoneValue = watch("phone");
+  const emailValue = watch("email");
 
   const toggleJob = (job: string) => {
     const next = selectedJobs.includes(job) ? selectedJobs.filter((item) => item !== job) : [...selectedJobs, job];
@@ -256,8 +263,35 @@ export default function ReportForm() {
     setProblemPhotos((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  const onSubmit = handleSubmit(
-    async (values) => {
+  const surveyMessage = () => {
+    const greeting = customerNameValue ? `Halo ${customerNameValue},` : "Halo pelanggan,";
+    return `${greeting}\n\nMohon bantuannya untuk mengisi survei layanan berikut:\n${surveyLink}`;
+  };
+
+  const handleShareWhatsApp = () => {
+    const phoneDigits = (phoneValue || "").replace(/\D/g, "");
+    if (!phoneDigits) {
+      setMessage("Phone number is missing.");
+      return;
+    }
+    const encoded = encodeURIComponent(surveyMessage());
+    window.open(`https://wa.me/${phoneDigits}?text=${encoded}`, "_blank", "noopener");
+  };
+
+  const handleShareEmail = () => {
+    if (!emailValue) {
+      setMessage("Customer email is missing.");
+      return;
+    }
+    const subject = encodeURIComponent("Customer Satisfaction Survey");
+    const body = encodeURIComponent(surveyMessage());
+    window.open(`mailto:${emailValue}?subject=${subject}&body=${body}`);
+  };
+
+  const handleShowQr = () => setShowSurveyQrModal(true);
+
+  const prepareSend = handleSubmit(
+    (values) => {
       if (!values.teknisiId) {
         setError("fseName", { type: "required", message: "Select a technician from the list." });
         setMessage("Please complete all required fields before sending to FSE.");
@@ -268,52 +302,59 @@ export default function ReportForm() {
         setMessage("Please complete all required fields before sending to FSE.");
         return;
       }
-      setLoading(true);
+      setPendingValues(values);
+      setShowSendConfirm(true);
       setMessage(null);
-      try {
-        const primaryDevice = values.deviceRows[0];
-        const safeDeviceName = primaryDevice?.description?.trim() || "Device";
-        const safeSerial = primaryDevice?.serialNo?.trim() || "N/A";
-        const safeLocation = primaryDevice?.location?.trim() || "N/A";
-        const payloadForStorage = {
-          ...values,
-          problemPhotos,
-          storedAt: new Date().toISOString(),
-        };
-        const createResponse = await api.post("/reports", {
-          customer: {
-            name: values.customerName,
-            address: values.address,
-            contact: values.phone || values.email,
-          },
-          device: {
-            name: safeDeviceName,
-            serial: safeSerial,
-            location: safeLocation,
-          },
-          complaint: values.problemDescription,
-          form_payload: payloadForStorage,
-        });
-        const createdReport = createResponse.data?.data ?? {};
-        const reportId = createdReport.id ?? createdReport.ID;
-        if (values.teknisiId && reportId) {
-          await api.patch(`/reports/${reportId}/assign`, {
-            teknisi_id: values.teknisiId,
-          });
-        }
-        setMessage("Service report sent to FSE.");
-        reset(defaultValues);
-        setProblemPhotos([]);
-      } catch (err: any) {
-        setMessage(err?.response?.data?.error ?? "Failed to save report.");
-      } finally {
-        setLoading(false);
-      }
     },
     () => {
       setMessage("Please complete all required fields before sending to FSE.");
     }
   );
+
+  const submitToFse = async (values: ReportFormValues) => {
+    setLoading(true);
+    try {
+      const primaryDevice = values.deviceRows[0];
+      const safeDeviceName = primaryDevice?.description?.trim() || "Device";
+      const safeSerial = primaryDevice?.serialNo?.trim() || "N/A";
+      const safeLocation = primaryDevice?.location?.trim() || "N/A";
+      const payloadForStorage = {
+        ...values,
+        problemPhotos,
+        storedAt: new Date().toISOString(),
+      };
+      const createResponse = await api.post("/reports", {
+        customer: {
+          name: values.customerName,
+          address: values.address,
+          contact: values.phone || values.email,
+        },
+        device: {
+          name: safeDeviceName,
+          serial: safeSerial,
+          location: safeLocation,
+        },
+        complaint: values.problemDescription,
+        form_payload: payloadForStorage,
+      });
+      const createdReport = createResponse.data?.data ?? {};
+      const reportId = createdReport.id ?? createdReport.ID;
+      if (values.teknisiId && reportId) {
+        await api.patch(`/reports/${reportId}/assign`, {
+          teknisi_id: values.teknisiId,
+        });
+      }
+      setMessage("Service report sent to FSE.");
+      reset(defaultValues);
+      setProblemPhotos([]);
+      setPendingValues(null);
+      setShowSendConfirm(false);
+    } catch (err: any) {
+      setMessage(err?.response?.data?.error ?? "Failed to save report.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-8 pb-16 text-slate-900">
@@ -323,7 +364,7 @@ export default function ReportForm() {
         <p className="text-sm text-slate-600">Content aligned with the client-provided wireframe.</p>
       </header>
 
-      <form onSubmit={onSubmit} className="space-y-8">
+      <form onSubmit={prepareSend} className="space-y-8">
         <section className={sectionClass}>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Field label="Dispatch No" required error={errors.dispatchNo?.message}>
@@ -841,14 +882,32 @@ export default function ReportForm() {
                     <p className="text-sm text-slate-600">Scan the QR code below to submit service feedback in real time.</p>
                   </div>
                   <div className="flex flex-wrap justify-center gap-2 text-xs font-semibold text-slate-600 md:justify-start">
-                    <span className="rounded-full border border-slate-200 px-3 py-1">WhatsApp</span>
-                    <span className="rounded-full border border-slate-200 px-3 py-1">Email Link</span>
-                    <span className="rounded-full border border-slate-200 px-3 py-1">Direct QR</span>
+                    <button
+                      type="button"
+                      onClick={handleShareWhatsApp}
+                      className="rounded-full border border-slate-200 px-3 py-1 text-slate-700 transition hover:border-slate-300"
+                    >
+                      WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleShareEmail}
+                      className="rounded-full border border-slate-200 px-3 py-1 text-slate-700 transition hover:border-slate-300"
+                    >
+                      Email Link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleShowQr}
+                      className="rounded-full border border-slate-200 px-3 py-1 text-slate-700 transition hover:border-slate-300"
+                    >
+                      Direct QR
+                    </button>
                   </div>
                 </div>
                 <div className="flex justify-center md:justify-end">
                   <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-inner shadow-slate-900/5">
-                    <QrCode className="h-32 w-32 text-slate-800 md:h-40 md:w-40" />
+                    <img src={qrSurvey} alt="Survey QR" className="h-32 w-32 md:h-40 md:w-40" />
                   </div>
                 </div>
               </div>
@@ -884,6 +943,54 @@ export default function ReportForm() {
         </section>
 
         {message && <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">{message}</p>}
+
+      {showSendConfirm && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl shadow-slate-900/10">
+            <h3 className="text-lg font-semibold text-slate-900">Send to FSE?</h3>
+            <p className="mt-2 text-sm text-slate-600">Ensure all data is correct before dispatching this report to the technician.</p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300"
+                onClick={() => {
+                  if (loading) return;
+                  setShowSendConfirm(false);
+                  setPendingValues(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-60"
+                disabled={loading || !pendingValues}
+                onClick={() => pendingValues && submitToFse(pendingValues)}
+              >
+                {loading ? "Sending..." : "Yes, send"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSurveyQrModal && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm px-4">
+          <div className="relative w-full max-w-lg rounded-3xl bg-white p-6 shadow-xl shadow-slate-900/20">
+            <button
+              type="button"
+              className="absolute right-4 top-4 rounded-full border border-slate-200 px-3 py-1 text-sm font-semibold text-slate-600 hover:border-slate-300"
+              onClick={() => setShowSurveyQrModal(false)}
+            >
+              Close
+            </button>
+            <div className="flex flex-col items-center gap-4">
+              <img src={qrSurvey} alt="Survey QR" className="h-56 w-56" />
+              <p className="text-center text-sm text-slate-600">Share this QR or send the link below:<br />{surveyLink}</p>
+            </div>
+          </div>
+        </div>
+      )}
       </form>
     </div>
   );
