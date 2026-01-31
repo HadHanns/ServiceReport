@@ -451,17 +451,17 @@ export default function ReportForm() {
 
     if (selectedPrintAttachmentIds.length > 0 && id) {
       const base = (api.defaults.baseURL || "").replace(/\/$/, "");
-      attachmentPdfs = selectedPrintAttachmentIds
-        .map((selectedId) => {
-          const selected = attachments.find((att, idx) => ((att.id ?? att.ID ?? idx) as number) === selectedId);
-          const fileName = selected?.file_name ?? selected?.FileName;
-          if (!fileName || !fileName.toLowerCase().endsWith(".pdf")) return null;
-          return {
-            url: `${base}/teknisi/reports/${id}/attachments/${selectedId}/download`,
-            name: fileName,
-          };
-        })
-        .filter((value): value is { url: string; name?: string } => value !== null);
+      const collected: { url: string; name?: string }[] = [];
+      for (const selectedId of selectedPrintAttachmentIds) {
+        const selected = attachments.find((att, idx) => ((att.id ?? att.ID ?? idx) as number) === selectedId);
+        const fileName = selected?.file_name ?? selected?.FileName;
+        if (!fileName || !fileName.toLowerCase().endsWith(".pdf")) continue;
+        collected.push({
+          url: `${base}/teknisi/reports/${id}/attachments/${selectedId}/download`,
+          name: fileName,
+        });
+      }
+      attachmentPdfs = collected;
 
       if (attachmentPdfs.length > 0) {
         attachmentPdfUrl = attachmentPdfs[0].url;
@@ -508,7 +508,7 @@ export default function ReportForm() {
     };
 
     setPrintSnapshot(snapshot);
-    setPrintModalAuto(!(attachmentPdfs?.length));
+    setPrintModalAuto(!(attachmentPdfs.length));
     setPrintModalOpen(true);
   };
 
