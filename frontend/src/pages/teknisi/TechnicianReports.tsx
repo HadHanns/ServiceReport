@@ -183,10 +183,27 @@ export default function ReportForm() {
   const [printModalAuto, setPrintModalAuto] = useState(false);
   const [printSnapshot, setPrintSnapshot] = useState<PrintableReport | null>(null);
   const [attachments, setAttachments] = useState<NonNullable<ReportDetail["attachments"]>>([]);
-  const [selectedPrintAttachmentId, setSelectedPrintAttachmentId] = useState<number | null>(null);
+  const [selectedPrintAttachmentIds, setSelectedPrintAttachmentIds] = useState<number[]>([]);
   const [attachmentUploading, setAttachmentUploading] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [finalizeFeedback, setFinalizeFeedback] = useState<{ status: "success" | "error"; message: string } | null>(null);
+
+  useEffect(() => {
+    if (attachments.length === 0) {
+      setSelectedPrintAttachmentIds([]);
+      return;
+    }
+    const selectable = new Set(
+      attachments
+        .map((att, idx) => {
+          const attId = (att.id ?? att.ID ?? idx) as number;
+          const fileName = att.file_name ?? att.FileName;
+          return fileName?.toLowerCase().endsWith(".pdf") ? attId : null;
+        })
+        .filter((attId): attId is number => attId !== null)
+    );
+    setSelectedPrintAttachmentIds((prev) => prev.filter((id) => selectable.has(id)));
+  }, [attachments]);
 
   const {
     register,
@@ -430,14 +447,25 @@ export default function ReportForm() {
 
     let attachmentPdfUrl: string | undefined;
     let attachmentPdfName: string | undefined;
+    let attachmentPdfs: PrintableReport["attachmentPdfs"] = [];
 
-    if (selectedPrintAttachmentId && id) {
-      const selected = attachments.find((att, idx) => ((att.id ?? att.ID ?? idx) as number) === selectedPrintAttachmentId);
-      const fileName = selected?.file_name ?? selected?.FileName;
-      if (fileName && fileName.toLowerCase().endsWith(".pdf")) {
-        const base = (api.defaults.baseURL || "").replace(/\/$/, "");
-        attachmentPdfUrl = `${base}/teknisi/reports/${id}/attachments/${selectedPrintAttachmentId}/download`;
-        attachmentPdfName = fileName;
+    if (selectedPrintAttachmentIds.length > 0 && id) {
+      const base = (api.defaults.baseURL || "").replace(/\/$/, "");
+      attachmentPdfs = selectedPrintAttachmentIds
+        .map((selectedId) => {
+          const selected = attachments.find((att, idx) => ((att.id ?? att.ID ?? idx) as number) === selectedId);
+          const fileName = selected?.file_name ?? selected?.FileName;
+          if (!fileName || !fileName.toLowerCase().endsWith(".pdf")) return null;
+          return {
+            url: `${base}/teknisi/reports/${id}/attachments/${selectedId}/download`,
+            name: fileName,
+          };
+        })
+        .filter((value): value is { url: string; name?: string } => value !== null);
+
+      if (attachmentPdfs.length > 0) {
+        attachmentPdfUrl = attachmentPdfs[0].url;
+        attachmentPdfName = attachmentPdfs[0].name;
       }
     }
 
@@ -473,13 +501,14 @@ export default function ReportForm() {
       afterEvidence: normalizedAfterEvidence,
       attachmentPdfUrl,
       attachmentPdfName,
+      attachmentPdfs,
       spareparts: spareRowsWatch,
       tools: toolRowsWatch,
       deviceRows: deviceRowsWatch,
     };
 
     setPrintSnapshot(snapshot);
-    setPrintModalAuto(!attachmentPdfUrl);
+    setPrintModalAuto(!(attachmentPdfs?.length));
     setPrintModalOpen(true);
   };
 
@@ -1614,23 +1643,30 @@ export default function ReportForm() {
                     const isPdf = fileName.toLowerCase().endsWith(".pdf");
                     const size = att.size ?? att.Size;
                     const createdAt = att.created_at ?? att.CreatedAt;
+                    const isSelected = selectedPrintAttachmentIds.includes(attId);
+                    const toggle = () => {
+                      if (!isPdf || !isFinalized) return;
+                      setSelectedPrintAttachmentIds((prev) => {
+                        if (prev.includes(attId)) {
+                          return prev.filter((value) => value !== attId);
+                        }
+                        return [...prev, attId];
+                      });
+                    };
                     return (
                       <div
                         key={`att-${attId}-${idx}`}
                         className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-3 ${
-                          selectedPrintAttachmentId === attId ? "border-slate-900 bg-slate-50" : "border-slate-200 bg-white"
+                          isSelected ? "border-slate-900 bg-slate-50" : "border-slate-200 bg-white"
                         } ${isPdf && isFinalized ? "cursor-pointer" : ""}`}
-                        onClick={() => {
-                          if (!isPdf || !isFinalized) return;
-                          setSelectedPrintAttachmentId((prev) => (prev === attId ? null : attId));
-                        }}
+                        onClick={toggle}
                         role={isPdf && isFinalized ? "button" : undefined}
                         tabIndex={isPdf && isFinalized ? 0 : undefined}
                         onKeyDown={(e) => {
                           if (!isPdf || !isFinalized) return;
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            setSelectedPrintAttachmentId((prev) => (prev === attId ? null : attId));
+                            toggle();
                           }
                         }}
                       >
@@ -1646,13 +1682,8 @@ export default function ReportForm() {
                             <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600" onClick={(e) => e.stopPropagation()}>
                               <input
                                 type="checkbox"
-                                checked={selectedPrintAttachmentId === attId}
-                                onChange={() =>
-                                  setSelectedPrintAttachmentId((prev) => {
-                                    if (prev === attId) return null;
-                                    return attId;
-                                  })
-                                }
+                                checked={isSelected}
+                                onChange={() => toggle()}
                                 disabled={!isFinalized}
                               />
                               Print

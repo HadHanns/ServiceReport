@@ -38,6 +38,7 @@ export type PrintableReport = {
   afterEvidence?: string[];
   attachmentPdfUrl?: string;
   attachmentPdfName?: string;
+  attachmentPdfs?: { url: string; name?: string }[];
   spareparts?: { qty?: string; partNo?: string; description?: string; status?: string }[];
   tools?: { code?: string; description?: string; usableLimit?: string }[];
   deviceRows?: {
@@ -84,6 +85,21 @@ export default function ServiceReportPrintModal({
   const originalTitleRef = useRef<string>(typeof document !== "undefined" ? document.title : "Service Report");
 
   const ready = !!snapshot && !loading && !errorMessage;
+
+  const attachmentPdfs = useMemo(() => {
+    if (snapshot?.attachmentPdfs?.length) return snapshot.attachmentPdfs;
+    if (snapshot?.attachmentPdfUrl) {
+      return [
+        {
+          url: snapshot.attachmentPdfUrl,
+          name: snapshot.attachmentPdfName,
+        },
+      ];
+    }
+    return [];
+  }, [snapshot?.attachmentPdfs, snapshot?.attachmentPdfName, snapshot?.attachmentPdfUrl]);
+
+  const hasAttachments = attachmentPdfs.length > 0;
 
   const resolvePrintImageSrc = (input: string) => {
     if (!input) return input;
@@ -166,10 +182,7 @@ export default function ServiceReportPrintModal({
     }
   };
 
-  const buildMergedPdfUrl = async (
-    attachmentUrl: string,
-    attachmentName?: string
-  ): Promise<string | null> => {
+  const buildMergedPdfUrl = async (attachments: { url: string; name?: string }[]): Promise<string | null> => {
     if (!ready || !printAreaRef.current) return null;
     setIsMergingPdf(true);
     try {
@@ -188,28 +201,34 @@ export default function ServiceReportPrintModal({
         return null;
       }
 
-      const attRes = await fetch(attachmentUrl, { credentials: "include", cache: "no-store" });
-      if (!attRes.ok) {
-        console.warn("[print] failed to fetch attachment pdf", { url: attachmentUrl, status: attRes.status });
-        setMergedPdfError(`Failed to fetch attachment PDF (HTTP ${attRes.status}).`);
-        return null;
-      }
-      const contentType = attRes.headers.get("content-type") || "";
-      const attBytes = await attRes.arrayBuffer();
-
-      if (!contentType.toLowerCase().includes("pdf") && attBytes.byteLength < 10_000) {
-        console.warn("[print] attachment response does not look like a PDF", { url: attachmentUrl, contentType, size: attBytes.byteLength });
-      }
-
       const merged = await PDFDocument.create();
 
       const reportDoc = await PDFDocument.load(reportBytes);
       const reportPages = await merged.copyPages(reportDoc, reportDoc.getPageIndices());
       reportPages.forEach((p: any) => merged.addPage(p));
 
-      const attDoc = await PDFDocument.load(attBytes);
-      const attPages = await merged.copyPages(attDoc, attDoc.getPageIndices());
-      attPages.forEach((p: any) => merged.addPage(p));
+      for (const attachment of attachments) {
+        const attRes = await fetch(attachment.url, { credentials: "include", cache: "no-store" });
+        if (!attRes.ok) {
+          console.warn("[print] failed to fetch attachment pdf", { url: attachment.url, status: attRes.status });
+          setMergedPdfError(`Failed to fetch attachment PDF${attachment.name ? ` (${attachment.name})` : ""} (HTTP ${attRes.status}).`);
+          return null;
+        }
+        const contentType = attRes.headers.get("content-type") || "";
+        const attBytes = await attRes.arrayBuffer();
+
+        if (!contentType.toLowerCase().includes("pdf") && attBytes.byteLength < 10_000) {
+          console.warn("[print] attachment response does not look like a PDF", {
+            url: attachment.url,
+            contentType,
+            size: attBytes.byteLength,
+          });
+        }
+
+        const attDoc = await PDFDocument.load(attBytes);
+        const attPages = await merged.copyPages(attDoc, attDoc.getPageIndices());
+        attPages.forEach((p: any) => merged.addPage(p));
+      }
 
       const mergedBytes = await merged.save();
       const mergedArray = mergedBytes instanceof Uint8Array ? mergedBytes : new Uint8Array(mergedBytes);
@@ -218,7 +237,6 @@ export default function ServiceReportPrintModal({
       const blob = new Blob([mergedBuffer], { type: "application/pdf" });
       const blobUrl = URL.createObjectURL(blob);
 
-      void attachmentName;
       return blobUrl;
     } catch (err) {
       console.error("[print] merge failed", err);
@@ -230,36 +248,33 @@ export default function ServiceReportPrintModal({
   };
 
   const handleMergedPrint = async () => {
-    if (!snapshot?.attachmentPdfUrl) return;
+    if (!hasAttachments) return;
     setMergedPdfError(null);
 
-    if (mergedPdfUrl) {
+    const focusAndPrint = () => {
       try {
         mergedFrameRef.current?.contentWindow?.focus();
         mergedFrameRef.current?.contentWindow?.print();
       } catch {
         // ignore
       }
+    };
+
+    if (mergedPdfUrl) {
+      focusAndPrint();
       return;
     }
 
-    const url = await buildMergedPdfUrl(snapshot.attachmentPdfUrl, snapshot.attachmentPdfName);
+    const url = await buildMergedPdfUrl(attachmentPdfs);
     if (!url) return;
     setMergedPdfUrl(url);
     // printing is a user gesture already; wait a moment for iframe to render.
-    setTimeout(() => {
-      try {
-        mergedFrameRef.current?.contentWindow?.focus();
-        mergedFrameRef.current?.contentWindow?.print();
-      } catch {
-        // ignore
-      }
-    }, 400);
+    setTimeout(focusAndPrint, 400);
   };
 
   useEffect(() => {
-    if (!autoPrint) return;
-    if (snapshot?.attachmentPdfUrl) return;
+    if (!autoPrint || hasAttachments) return;
+    if (!ready || !printAreaRef.current) return;
     let cancelled = false;
 
     const waitAndPrint = () => {
@@ -277,7 +292,7 @@ export default function ServiceReportPrintModal({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoPrint, ready, snapshot]);
+  }, [autoPrint, ready, snapshot, hasAttachments]);
 
   const ensurePrintStyles = () => {
     const existing = document.getElementById("report-print-style") as HTMLStyleElement | null;
@@ -436,7 +451,7 @@ export default function ServiceReportPrintModal({
   const handleChromePrint = (afterPrint?: () => void) => {
     if (!ready || !printAreaRef.current) return;
 
-    if (snapshot?.attachmentPdfUrl) {
+    if (hasAttachments) {
       // merged printing is handled inside the modal (no new tab).
       void afterPrint;
       return;
@@ -506,7 +521,7 @@ export default function ServiceReportPrintModal({
       if (cancelled) return;
       setPrintReady(true);
       setIsPreparingPrint(false);
-      if (autoPrint && !snapshot?.attachmentPdfUrl) {
+      if (autoPrint && !hasAttachments) {
         handleChromePrint(() => onAutoPrintDone?.());
       }
     })();
@@ -515,7 +530,7 @@ export default function ServiceReportPrintModal({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, ready, snapshot]);
+  }, [open, ready, snapshot, autoPrint, hasAttachments, onAutoPrintDone]);
 
   useEffect(() => {
     if (!open) {
@@ -573,14 +588,14 @@ export default function ServiceReportPrintModal({
             >
               {snapshot?.attachmentPdfUrl ? "Print + Lampiran" : "Print"}
             </button>
-            <button
+            {/* <button
               type="button"
               onClick={handleDownloadPdf}
               disabled={!ready || isGeneratingPdf}
               className="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isGeneratingPdf ? "Menyiapkan..." : "Download PDF"}
-            </button>
+            </button> */}
             <button
               type="button"
               onClick={onClose}
